@@ -1252,5 +1252,117 @@ function printTrip(){
 
 render();
 </script>
+
+<script>
+/* ===== حزمة التثبيت كتطبيق (PWA) — أيقونة البوصلة ===== */
+(function(){
+  /* ١) رسم أيقونة البوصلة برمجيًا */
+  function makeIcon(size){
+    const c=document.createElement('canvas');c.width=c.height=size;
+    const x=c.getContext('2d'),u=size/512,cx=size/2,cy=size/2;
+
+    x.fillStyle='#0B0D10';x.fillRect(0,0,size,size);
+
+    const glow=x.createRadialGradient(cx,cy*.7,size*.06,cx,cy,size*.6);
+    glow.addColorStop(0,'rgba(240,180,41,.15)');glow.addColorStop(1,'rgba(240,180,41,0)');
+    x.fillStyle=glow;x.fillRect(0,0,size,size);
+
+    x.strokeStyle='#EDEAE2';x.lineWidth=7*u;
+    x.beginPath();x.arc(cx,cy,198*u,0,7);x.stroke();
+    x.globalAlpha=.5;x.lineWidth=3*u;
+    x.beginPath();x.arc(cx,cy,180*u,0,7);x.stroke();
+    x.globalAlpha=1;
+
+    for(let i=0;i<24;i++){
+      if(i%6===0)continue;
+      const a=i*15*Math.PI/180;
+      x.strokeStyle='rgba(237,234,226,.85)';x.lineWidth=2.6*u;
+      x.beginPath();
+      x.moveTo(cx+158*u*Math.sin(a),cy-158*u*Math.cos(a));
+      x.lineTo(cx+185*u*Math.sin(a),cy-185*u*Math.cos(a));
+      x.stroke();
+    }
+
+    x.fillStyle='#C9CFD6';x.textAlign='center';x.textBaseline='middle';
+    x.font='700 '+Math.round(54*u)+'px Alexandria, system-ui, sans-serif';
+    x.fillText('ش',cx,cy-148*u);
+    x.fillText('ق',cx+148*u,cy+4*u);
+    x.fillText('ج',cx,cy+150*u);
+    x.fillText('غ',cx-148*u,cy+4*u);
+
+    x.lineJoin='round';
+    x.fillStyle='#F0B429';x.strokeStyle='#0B0D10';x.lineWidth=4*u;
+    x.beginPath();
+    x.moveTo(cx,cy-124*u);x.lineTo(cx+21*u,cy+6*u);
+    x.lineTo(cx,cy+30*u);x.lineTo(cx-21*u,cy+6*u);
+    x.closePath();x.fill();x.stroke();
+
+    x.strokeStyle='#EDEAE2';x.lineWidth=4*u;
+    x.beginPath();
+    x.moveTo(cx,cy+124*u);x.lineTo(cx+21*u,cy-6*u);
+    x.lineTo(cx,cy-30*u);x.lineTo(cx-21*u,cy-6*u);
+    x.closePath();x.stroke();
+
+    x.fillStyle='#0B0D10';x.beginPath();x.arc(cx,cy,16*u,0,7);x.fill();
+    x.strokeStyle='#EDEAE2';x.lineWidth=5*u;x.beginPath();x.arc(cx,cy,16*u,0,7);x.stroke();
+    x.fillStyle='#F0B429';x.beginPath();x.arc(cx,cy,6*u,0,7);x.fill();
+
+    x.save();
+    x.translate(cx+92*u,cy-92*u);x.scale(1.25*u,1.25*u);
+    x.fillStyle='#B9C0C9';
+    x.fill(new Path2D('M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z'));
+    x.restore();
+
+    return c.toDataURL('image/png');
+  }
+  const i192=makeIcon(192), i512=makeIcon(512);
+  const base=new URL('./',location.href).href;
+
+  /* ٢) بناء ملف manifest ديناميكيًا */
+  const manifest={name:'وِجهة — دفتر رحلاتك الخاص',short_name:'وِجهة',
+    description:'سجّل رحلاتك: التذاكر، الأماكن، الصور، المستلزمات، وعدّاد تنازلي حتى الإقلاع.',
+    start_url:base,scope:base,display:'standalone',orientation:'portrait',
+    background_color:'#0B0D10',theme_color:'#0B0D10',lang:'ar',dir:'rtl',
+    icons:[{src:i192,sizes:'192x192',type:'image/png'},
+           {src:i512,sizes:'512x512',type:'image/png'},
+           {src:i512,sizes:'512x512',type:'image/png',purpose:'maskable'}]};
+  const mf=document.createElement('link');mf.rel='manifest';
+  mf.href=URL.createObjectURL(new Blob([JSON.stringify(manifest)],{type:'application/manifest+json'}));
+  document.head.appendChild(mf);
+
+  /* ٣) أيقونة المتصفح + إعدادات iOS */
+  const add=(tag,attrs)=>{const el=document.createElement(tag);for(const a in attrs)el.setAttribute(a,attrs[a]);document.head.appendChild(el);};
+  add('link',{rel:'icon',href:i192});
+  add('link',{rel:'apple-touch-icon',href:i192});
+  add('meta',{name:'apple-mobile-web-app-capable',content:'yes'});
+  add('meta',{name:'mobile-web-app-capable',content:'yes'});
+  add('meta',{name:'apple-mobile-web-app-status-bar-style',content:'black-translucent'});
+  add('meta',{name:'apple-mobile-web-app-title',content:'وِجهة'});
+
+  /* ٤) زر التثبيت + تلميح الآيفون */
+  let deferred=null;
+  const installed=matchMedia('(display-mode: standalone)').matches||navigator.standalone;
+  const btn=document.createElement('button');
+  btn.className='btn primary';
+  btn.style.cssText='position:fixed;bottom:18px;inset-inline-start:18px;z-index:150;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;align-items:center;gap:.5em';
+  btn.textContent='⬇️ تثبيت التطبيق';
+  btn.onclick=async()=>{if(!deferred)return;deferred.prompt();await deferred.userChoice;deferred=null;btn.style.display='none';};
+  document.body.appendChild(btn);
+
+  if(/iphone|ipad|ipod/i.test(navigator.userAgent)&&!installed){
+    const tip=document.createElement('div');
+    tip.style.cssText='position:fixed;bottom:18px;inset-inline-start:18px;z-index:150;max-width:280px;background:var(--card3);border:1px solid var(--line);border-radius:14px;padding:12px 16px;font-size:.85rem;box-shadow:0 10px 30px rgba(0,0,0,.5)';
+    tip.innerHTML='📲 للتثبيت على الآيفون: اضغط زر <b>المشاركة</b> ثم <b>«إضافة إلى الشاشة الرئيسية»</b><button style="position:absolute;top:4px;inset-inline-end:10px;color:var(--muted)" onclick="this.parentNode.remove()">✕</button>';
+    document.body.appendChild(tip);
+  }
+  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;if(!installed)btn.style.display='inline-flex';});
+  window.addEventListener('appinstalled',()=>{btn.style.display='none';toast('ثُبّت التطبيق — تجده في شاشتك الرئيسية');});
+
+  /* ٥) العمل بدون إنترنت */
+  if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost')){
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  }
+})();
+</script>
 </body>
 </html>
