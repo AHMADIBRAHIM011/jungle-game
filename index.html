@@ -474,14 +474,45 @@ function flashSaved(){
   clearTimeout(savedT); savedT=setTimeout(()=>f.classList.remove('on'),1400);
 }
 
-/* ================= التخزين ================= */
-let trips=[];
-try{trips=JSON.parse(localStorage.getItem(LS))||[]}catch(e){trips=[]}
+/* ================= التخزين (IndexedDB — مساحة كبيرة للصور) ================= */
+const IDS='kv';
+function idbOpen(){
+  return new Promise((res,rej)=>{
+    const r=indexedDB.open('wihdaDB',1);
+    r.onupgradeneeded=()=>r.result.createObjectStore(IDS);
+    r.onsuccess=()=>res(r.result);
+    r.onerror=()=>rej(r.error);
+  });
+}
+async function idbSet(k,v){
+  const db=await idbOpen();
+  return new Promise((res,rej)=>{
+    const tx=db.transaction(IDS,'readwrite');
+    tx.objectStore(IDS).put(v,k);
+    tx.oncomplete=res;tx.onerror=()=>rej(tx.error);
+  });
+}
+async function idbGet(k){
+  const db=await idbOpen();
+  return new Promise((res,rej)=>{
+    const rq=db.transaction(IDS,'readonly').objectStore(IDS).get(k);
+    rq.onsuccess=()=>res(rq.result);rq.onerror=()=>rej(rq.error);
+  });
+}
+let trips=[],quotaToast=0;
 function persist(){
   flashSaved();
-  try{localStorage.setItem(LS,JSON.stringify(trips))}
-  catch(e){toast('مساحة التخزين ممتلئة — صدّر نسخة احتياطية واحذف بعض الصور','err')}
+  idbSet('trips',trips).catch(()=>{
+    try{localStorage.setItem(LS,JSON.stringify(trips))}
+    catch(e){
+      if(Date.now()-quotaToast>6000){
+        toast('المساحة ممتلئة — صدّر نسخة احتياطية ثم احذف بعض الصور','err');
+        quotaToast=Date.now();
+      }
+    }
+  });
 }
+
 const defaultCats=()=>[
   {name:'الإقامة',icon:'bed'},{name:'المطاعم',icon:'utensils'},{name:'المقاهي',icon:'coffee'},
   {name:'المولات',icon:'bag'},{name:'الأسواق',icon:'basket'},{name:'الشوارع',icon:'sign'},
@@ -564,7 +595,7 @@ function renderHome(){
         <button class="btn primary lg" onclick="openTripModal()">${ic('plus')} رحلة جديدة</button>
         <button class="btn ghost" onclick="printTrip()">${ic('printer')} طباعة</button>
       </div>
-      <p class="stats">${trips.length?`${arD(trips.length)} رحلات في دفترك · ${arD(up)} قادمة · محفوظة محليًا في متصفحك`:'دفترك جاهز — أول صفحة دائمًا هي الأجمل'}</p>
+      <p class="stats">${trips.length?`${arD(trips.length)} رحلات في دفترك · ${arD(up)} قادمة · محفوظة في جهازك`:'دفترك جاهز — أول صفحة دائمًا هي الأجمل'}</p>
     </div>
     <div class="hero-art">${compassSVG()}</div>
   </section>
@@ -1250,7 +1281,26 @@ function printTrip(){
   setTimeout(()=>window.print(),80);
 }
 
-render();
+/* ================= الإقلاع: تحميل البيانات ثم أول رسم ================= */
+(async()=>{
+  try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
+  try{
+    const d=await idbGet('trips');
+    if(Array.isArray(d)){trips=d;}
+    else{
+      const old=localStorage.getItem(LS);
+      if(old){
+        trips=JSON.parse(old)||[];
+        await idbSet('trips',trips);   /* هجرة بياناتك القديمة تلقائيًا */
+        localStorage.removeItem(LS);   /* تحرير المساحة القديمة */
+      }
+    }
+  }catch(e){
+    const old=localStorage.getItem(LS);
+    if(old){try{trips=JSON.parse(old)||[]}catch(_){}}
+  }
+  render();
+})();
 </script>
 
 <script>
